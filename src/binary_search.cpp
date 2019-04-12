@@ -64,8 +64,10 @@ int main(int argc, char *argv[]){
 				break;
 		}
 
+		if(found)
+			break;
 
-		start++;
+		start = (start+end)/2 +1;
 	}
 
 	cout << "("<<intPage<<","<<intEntryNum<<")"<<endl;
