@@ -31,7 +31,7 @@ _OBJ1 =  buffer_manager.o file_manager.o binary_search.o
 
 _OBJ2 =  buffer_manager.o file_manager.o binary.o
 
-_OBJ3 =  buffer_manager.o file_manager.o binary.o
+_OBJ3 =  buffer_manager.o file_manager.o merge_sort.o
 
 # _OBJ4 = kmeans.o cluster.o point.o 
 

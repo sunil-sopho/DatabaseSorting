@@ -70,6 +70,9 @@ int main(int argc, char *argv[]){
 		start = (start+end)/2 +1;
 	}
 
+	// Close the file
+	fm.CloseFile(fh);
+	
 	cout << "("<<intPage<<","<<intEntryNum<<")"<<endl;
 
 	return 0;
