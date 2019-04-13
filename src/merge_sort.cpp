@@ -6,6 +6,24 @@
 using namespace std;
 int verbose = 1;
 
+int ceil(int num1 ,int num2){
+	if(num1%num2){
+		return num1/num2 +1;
+	}else{
+		return num1/num2;
+	}
+}
+
+// check for last systems of B-1 not needed so v.size()
+int minIndex(vector<int> v){
+	int index = 0;
+	int val = v[0];
+
+	for(int i=0;i<v.size();i++){
+
+	}
+}
+
 int main(int argc, char *argv[]){
 	if(verbose)
 		cout << "No. of arguments:: "<<argc << endl;
@@ -24,23 +42,33 @@ int main(int argc, char *argv[]){
 	FileHandler fh = fm.OpenFile(argv[1]);
 
 	//  intialize variables 
-	int numRuns;
+	int numPages,numRuns;
 
 	// No. of pages in file
-	numRuns =  fh.LastPage().GetPageNum() + 1;
+	numPages =  fh.LastPage().GetPageNum() + 1;
+
+	// evict last page
+	fh.UnpinPage(numPages-1);
+
 	PageHandler ph ;
+
+	numRuns = ceil(numPages,(BUFFER_SIZE-1));
 	
-	if(verbose)
-		cout << "Number of Pages :: " << numRuns << endl;
+	if(verbose){
+		cout << "Number of Pages :: " << numPages << endl;
+		cout << "Number of Runs :: " << numRuns << endl;
+	
+	}
+
 
 // Rethink about this
-	// if(numRuns >= BUFFER_SIZE){
-	// 	if(verbose){
-	// 		cout << "Think and code if you can :{" << endl;
-	// 	}
+	if(numRuns >= BUFFER_SIZE){
+		if(verbose){
+			cout << "Think and code if you can :{" << endl;
+		}
 
-	// 	return 1;
-	// }
+		return 1;
+	}
 
 	// Creating inital runs
 	FileHandler scratch[numRuns];
@@ -48,22 +76,84 @@ int main(int argc, char *argv[]){
 		scratch[i] = fm.CreateFile(to_string(i).c_str());
 	}
 
+	PageHandler inputPages[BUFFER_SIZE-1];
 	int num,count = 0;
 	char * data;
 	while(true){
-		ph = fh.PageAt(0);
-		data = ph.GetData();
-		for(int i=0;i<(PAGE_CONTENT_SIZE/(sizeof(int)));i++){
-			memcpy (&num, &data[i*4], sizeof(int));
-			cout << num << endl;
+		// do inital runs here
+		ph = scratch[count].NewPage();
+		// now fectching B-1 integer blocks
+		// Now lets sort data one by one for all pages
+		vector<int> values;
+		vector<int> indice;
+		for(int i=0;i<BUFFER_SIZE-1;i++){
+			inputPages[i] = fh.PageAt(count*(BUFFER_SIZE-1)+i);
+			data = inputPages[i].GetData();
+			vector<int> v;
+			// Iterating over data
+			for(int j=0;j<(PAGE_CONTENT_SIZE/(sizeof(int)));j++){
+				memcpy (&num, &data[j*4], sizeof(int));
+				// cout << num << endl;
 
-			if(num==INT_MIN){
-				cout << "=================================\n";
-				break;
+				if(num==INT_MIN){
+					if(verbose)
+						cout << "INT_MIN Encountered at :: "<< v.size() <<"\n";
+					break;
+				}
+				v.push_back(num);
 			}
+			// sorting vector
+			sort(v.begin(),v.end());
+			for(int j=0;j < v.size();j++){
+				num = v[j];
+				memcpy (&data[j*4],&num, sizeof(int));
+			}
+
+			// a checker for if everything is cool
+			if(verbose==3){
+				int val;
+				data = inputPages[i].GetData();
+				for(int itr=0;itr<v.size();itr++){
+					memcpy(&val,&data[itr*4],sizeof(int));
+					cout << v[itr] << " :: "<<val<<endl;
+				}
+			}
+
+			// sorted this Page 
+			// Set some parameters
+			indice.push_back(0);
+			values.push_back(v[0]);
+
 		}
 
+		// Now do a Kway Merge so uncool :(
+		if(verbose)
+			cout << "Intiating K way merge for Sorted Run :: "<<count+1<<endl;
+		for(int i=0;i<BUFFER_SIZE-1;i++){
+			cout << indice[i] << " :: " << values[i] <<endl;
+		}
+		// Till we add B-1 Pages in sorted order to new file
+		while(true){
+			int pageCount = minIndex(values);
+
+
+		}
+
+
+		// ph = fh.PageAt(count);
+		// data = ph.GetData();
+
+
+		// Increment counter and evict page B-1 of input file
+		for(int i=0;i<BUFFER_SIZE-1;i++){
+			fh.UnpinPage(count*(BUFFER_SIZE-1)+i);		
+		}
+
+		// now evict pages of scratch
+		scratch[count].UnpinPage(0);
+
 		count++;
+
 		if(count >= numRuns){
 			break;
 		}
