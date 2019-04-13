@@ -33,13 +33,48 @@ int main(int argc, char *argv[]){
 	if(verbose)
 		cout << "Number of Pages :: " << numRuns << endl;
 
-	if(numRuns >= BUFFER_SIZE){
-		if(verbose){
-			cout << "Think and code if you can :{" << endl;
+// Rethink about this
+	// if(numRuns >= BUFFER_SIZE){
+	// 	if(verbose){
+	// 		cout << "Think and code if you can :{" << endl;
+	// 	}
+
+	// 	return 1;
+	// }
+
+	// Creating inital runs
+	FileHandler scratch[numRuns];
+	for(int i=0;i<numRuns;i++){
+		scratch[i] = fm.CreateFile(to_string(i).c_str());
+	}
+
+	int num,count = 0;
+	char * data;
+	while(true){
+		ph = fh.PageAt(0);
+		data = ph.GetData();
+		for(int i=0;i<(PAGE_CONTENT_SIZE/(sizeof(int)));i++){
+			memcpy (&num, &data[i*4], sizeof(int));
+			cout << num << endl;
+
+			if(num==INT_MIN){
+				cout << "=================================\n";
+				break;
+			}
 		}
 
-		return 1;
+		count++;
+		if(count >= numRuns){
+			break;
+		}
 	}
+
+
+	// Destroying Intial runs
+	for(int i=0;i<numRuns;i++){
+		fm.DestroyFile(to_string(i).c_str());
+	}
+
 
 	// Close the file
 	fm.CloseFile(fh);
