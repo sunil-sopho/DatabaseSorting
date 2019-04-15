@@ -4,7 +4,14 @@
 #include<cstring>
 
 using namespace std;
-int verbose = 1;
+
+#define F first
+#define S second
+#define PB push_back
+#define MP make_pair
+
+// verbose level for depth reports 
+int verbose = 5;
 
 int ceil(int num1 ,int num2){
 	if(num1%num2){
@@ -15,20 +22,50 @@ int ceil(int num1 ,int num2){
 }
 
 // check for last systems of B-1 not needed so v.size()
-int minIndex(vector<int> v){
+pair<int,int> minIndex(vector<int> v){
 	int index = 0;
 	int val = v[0];
+	int secondVal=INT_MAX;
+	for(int i=0;i<v.size();i++){
+		if(v[i]<val){
+			index = i;
+			val = v[i];
+		}
+	}
 
 	for(int i=0;i<v.size();i++){
+		if(i==index)
+			continue;
+		// handle case here
+		
+		if(secondVal>v[i])
+			secondVal = v[i];
 
 	}
+
+
+	return {index,secondVal};
+}
+
+bool endCheck(vector<int> v){
+	bool ret = true;
+	for(int i=0;i<v.size();i++){
+		if(v[i]!=INT_MAX){
+			if(verbose<3)
+			cout << v.size() <<"  Ret FAiled due to :: "<<i<<endl;
+			ret = false;
+			break;
+		}
+	}
+
+	return ret;
 }
 
 int main(int argc, char *argv[]){
-	if(verbose)
+	if(verbose<2)
 		cout << "No. of arguments:: "<<argc << endl;
 	if(argc != 3){
-		if(verbose){
+		if(verbose<8){
 			cout << "Argument miss match"<< endl;
 			cout << "usage :: ./merge_sort <input_file> <output_file>\n";
 		}
@@ -54,7 +91,7 @@ int main(int argc, char *argv[]){
 
 	numRuns = ceil(numPages,(BUFFER_SIZE-1));
 	
-	if(verbose){
+	if(verbose<8){
 		cout << "Number of Pages :: " << numPages << endl;
 		cout << "Number of Runs :: " << numRuns << endl;
 	
@@ -77,7 +114,7 @@ int main(int argc, char *argv[]){
 	}
 
 	PageHandler inputPages[BUFFER_SIZE-1];
-	int num,count = 0;
+	int num,count = 0,scratchPageCount=0;
 	char * data;
 	while(true){
 		// do inital runs here
@@ -96,7 +133,7 @@ int main(int argc, char *argv[]){
 				// cout << num << endl;
 
 				if(num==INT_MIN){
-					if(verbose)
+					if(verbose<8)
 						cout << "INT_MIN Encountered at :: "<< v.size() <<"\n";
 					break;
 				}
@@ -110,7 +147,7 @@ int main(int argc, char *argv[]){
 			}
 
 			// a checker for if everything is cool
-			if(verbose==3){
+			if(verbose==5){
 				int val;
 				data = inputPages[i].GetData();
 				for(int itr=0;itr<v.size();itr++){
@@ -124,18 +161,78 @@ int main(int argc, char *argv[]){
 			indice.push_back(0);
 			values.push_back(v[0]);
 
+			//break if all pages end
+			if(count*(BUFFER_SIZE-1)+i+1 >= numPages){
+				break;
+			}
+
 		}
 
 		// Now do a Kway Merge so uncool :(
-		if(verbose)
+		if(verbose<8)
 			cout << "Intiating K way merge for Sorted Run :: "<<count+1<<endl;
 		for(int i=0;i<BUFFER_SIZE-1;i++){
+			if(verbose < 4)
 			cout << indice[i] << " :: " << values[i] <<endl;
 		}
+
+		// Lets Perpare for writing to new page
+		char* writer = ph.GetData();
+		int counter=0;
+
 		// Till we add B-1 Pages in sorted order to new file
 		while(true){
-			int pageCount = minIndex(values);
+			int pageCount,secondVal;
+			tie(pageCount,secondVal) = minIndex(values);
 
+			// cout << pageCount << " --------- "<< values[pageCount] <<" --------- "<<secondVal << endl;
+			// Now open pageCount and read data from indice till secondVal
+			data = inputPages[pageCount].GetData();
+			for(int i=indice[pageCount];;i++){
+				memcpy (&num, &data[i*4], sizeof(int));
+
+				if(num == INT_MIN){
+					indice[pageCount] = i;
+					values[pageCount] = INT_MAX; 
+					if(verbose<5)
+						cout << "Break Due to Page End " <<endl;
+
+					break;
+				}
+				if(num > secondVal){
+					indice[pageCount] = i;
+					values[pageCount] = num;
+					if(verbose<3)
+						cout << "Break Due to secondVal :: "<< secondVal <<endl;
+					break;
+				}
+
+				// write to page that is opened @sunil check for INT_MIN
+				if(counter < PAGE_CONTENT_SIZE/(sizeof(int))){
+
+				}else{
+					if(verbose < 8)
+						cout <<"PageLimitExceed\n";
+					scratch[count].UnpinPage(scratchPageCount);
+					scratchPageCount++;
+					// New page needed
+					ph = scratch[count].NewPage();
+					writer =ph.GetData();
+					counter=0;
+
+				}
+
+				memcpy(&writer[counter*4],&num,sizeof(int));
+				if(verbose)
+					cout << "counter at :: "<<counter-1 <<"Inserted :: "<<num <<endl;
+
+				num = INT_MIN;
+				memcpy(&writer[(counter+1)*4],&num,sizeof(int));
+				counter++;
+
+			}
+			if(endCheck(values))
+				break;
 
 		}
 
@@ -146,12 +243,17 @@ int main(int argc, char *argv[]){
 
 		// Increment counter and evict page B-1 of input file
 		for(int i=0;i<BUFFER_SIZE-1;i++){
+			if(count*(BUFFER_SIZE-1)+i+1 >= numPages){
+				break;
+			}
 			fh.UnpinPage(count*(BUFFER_SIZE-1)+i);		
 		}
 
 		// now evict pages of scratch
-		scratch[count].UnpinPage(0);
-
+		if(verbose < 8)
+			cout << "Evicted scratchPageCount :: "<<scratchPageCount+1<<endl;
+		scratch[count].UnpinPage(scratchPageCount);
+		scratch[count].FlushPages();
 		count++;
 
 		if(count >= numRuns){
@@ -165,7 +267,7 @@ int main(int argc, char *argv[]){
 		fm.DestroyFile(to_string(i).c_str());
 	}
 
-
+	cout <<"Till HERE\n";
 	// Close the file
 	fm.CloseFile(fh);
 
